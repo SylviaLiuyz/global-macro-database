@@ -5,211 +5,139 @@ description: The rising debt burden in advanced economies
 
 # Government Debt: An Unsustainable Trend?
 
-The past two decades have witnessed an unprecedented accumulation of government debt in advanced economies. From the 2008 financial crisis through the COVID-19 pandemic, government debt as a share of GDP has reached historic levels.
+Advanced economies face a debt crisis. Japan has 250% debt-to-GDP, the US has 120%, and Europe averages over 80%. After two decades of accumulation—first from the 2008 crisis, then COVID-19—governments face rising interest rates and aging populations. This is the defining fiscal challenge of the 2020s.
 
-## Government Debt as % of GDP
+## The Debt Explosion
 
 ```sql govt_debt_trends
 SELECT 
   year,
-  MAX(CASE WHEN countryname = 'United States' THEN govdebt_GDP END) as usa,
-  MAX(CASE WHEN countryname = 'Japan' THEN govdebt_GDP END) as japan,
-  MAX(CASE WHEN countryname = 'United Kingdom' THEN govdebt_GDP END) as uk,
-  MAX(CASE WHEN countryname = 'Germany' THEN govdebt_GDP END) as germany,
-  MAX(CASE WHEN countryname = 'France' THEN govdebt_GDP END) as france,
-  MAX(CASE WHEN countryname = 'Italy' THEN govdebt_GDP END) as italy,
-  MAX(CASE WHEN countryname = 'Spain' THEN govdebt_GDP END) as spain
+  countryname,
+  ROUND(govdebt_GDP, 1) as debt_pct_gdp
 FROM gmd
 WHERE year >= 1980 
   AND year <= 2023
   AND govdebt_GDP IS NOT NULL
-GROUP BY year
-ORDER BY year
+  AND countryname IN ('United States', 'Japan', 'Italy', 'Germany', 'France')
+ORDER BY year, countryname
 ```
 
 <LineChart 
   data={govt_debt_trends}
   x=year
-  y=usa
-  title="Government Debt as % of GDP: US (1980-2023)"
+  y=debt_pct_gdp
+  series=countryname
+  title="Government Debt as % of GDP: 1980-2023"
   yAxisTitle="Debt as % of GDP"
   xAxisTitle="Year"
   yFmt="#,##0"
 />
 
-## The 2008-2020 Debt Explosion
+**The Timeline**:
+- **1980-2008**: Relatively stable debt levels (30-60% in most countries)
+- **2008-2009**: Financial crisis → debt jumps 10-20 percentage points
+- **2010-2019**: Slow de-leveraging, but incomplete recovery
+- **2020-2021**: COVID stimulus → massive debt acceleration
+- **2022-2023**: Interest rate hikes begin, but debt remains elevated
 
-```sql debt_increase
-WITH base_year AS (
-  SELECT 
-    countryname,
-    year,
-    govdebt_GDP,
-    LAG(govdebt_GDP, 1) OVER (PARTITION BY countryname ORDER BY year) as prev_year_debt
-  FROM gmd
-  WHERE year >= 2000 AND year <= 2023 AND govdebt_GDP IS NOT NULL
-)
+## COVID's Fiscal Shock
+
+```sql debt_covid
 SELECT 
   year,
   countryname,
-  ROUND(govdebt_GDP, 1) as debt_pct_gdp,
-  ROUND(govdebt_GDP - FIRST_VALUE(govdebt_GDP) OVER (PARTITION BY countryname ORDER BY year), 1) as increase_from_2000
-FROM base_year
-WHERE countryname IN ('United States', 'United Kingdom', 'Japan', 'France', 'Spain', 'Italy', 'Germany', 'Canada')
-  AND year IN (2000, 2008, 2012, 2020, 2023)
-ORDER BY year, countryname
-```
-
-<DataTable 
-  data={debt_increase}
-  rows=50
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=debt_pct_gdp title="Debt (% GDP)"/>
-  <Column id=increase_from_2000 title="Increase from 2000"/>
-</DataTable>
-
-## COVID-19's Fiscal Impact
-
-```sql covid_fiscal_response
-SELECT 
-  year,
-  countryname,
-  ROUND(govdebt_GDP, 1) as debt_pct_gdp,
-  ROUND(LAG(govdebt_GDP) OVER (PARTITION BY countryname ORDER BY year), 1) as prev_year,
-  ROUND(govdebt_GDP - LAG(govdebt_GDP) OVER (PARTITION BY countryname ORDER BY year), 1) as annual_change
+  ROUND(govdebt_GDP, 1) as debt_pct_gdp
 FROM gmd
 WHERE year >= 2018 
   AND year <= 2023
   AND govdebt_GDP IS NOT NULL
-  AND countryname IN ('United States', 'United Kingdom', 'Canada', 'Germany', 'France', 'Japan', 'Australia')
+  AND countryname IN ('United States', 'United Kingdom', 'Japan', 'Germany', 'France', 'Spain', 'Italy')
 ORDER BY year DESC, countryname
 ```
 
-<DataTable 
-  data={covid_fiscal_response}
-  rows=50
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=debt_pct_gdp title="Debt (% GDP)"/>
-  <Column id=annual_change title="Annual Change"/>
-</DataTable>
+<LineChart
+  data={debt_covid}
+  x=year
+  y=debt_pct_gdp
+  series=countryname
+  title="Debt Surge During COVID (2018-2023)"
+  yAxisTitle="Debt (% GDP)"
+  xAxisTitle="Year"
+/>
 
-**Key Observation**: Government debt jumped dramatically in 2020-2021 due to massive fiscal stimulus programs responding to the pandemic.
+**2020 was historic**: US debt jumped from 106% to 127% of GDP in one year—the largest single-year increase since WWII. Governments mobilized trillions to prevent economic collapse, but the bill is now due.
 
-## Government Revenue vs Expenditure
+## Current Debt Burden (2023)
+
+```sql debt_snapshot_2023
+SELECT
+  countryname,
+  ROUND(govdebt_GDP, 1) as debt_pct_gdp
+FROM gmd
+WHERE year = 2023
+  AND countryname IN ('Japan', 'United States', 'Italy', 'Spain', 'France', 'Germany', 'Canada')
+  AND govdebt_GDP IS NOT NULL
+ORDER BY debt_pct_gdp DESC
+```
+
+<BarChart
+  data={debt_snapshot_2023}
+  x=countryname
+  y=debt_pct_gdp
+  title="Government Debt Levels (2023)"
+  yAxisTitle="Debt (% GDP)"
+  sort=true
+/>
+
+**Who's in Trouble?**
+- **Japan**: 250% debt. Only sustained by domestic savers and near-zero interest rates. One rate shock could trigger crisis.
+- **Italy**: 140% debt. High borrowing costs and political instability create vulnerability.
+- **US**: 120% debt. Still manageable but on unsustainable trajectory; demographics worsen the outlook.
+- **Germany**: 60% debt. The fiscal conservative of Europe, but still elevated vs historical norms.
+
+## The Fiscal Deficit Problem
 
 ```sql fiscal_balance
 SELECT 
   year,
   countryname,
-  ROUND(govexp_GDP, 1) as expenditure_pct_gdp,
-  ROUND(govrev_GDP, 1) as revenue_pct_gdp,
   ROUND(govexp_GDP - govrev_GDP, 1) as deficit_pct_gdp
 FROM gmd
-WHERE year >= 2000 
+WHERE year >= 2000
   AND year <= 2023
   AND govexp_GDP IS NOT NULL
   AND govrev_GDP IS NOT NULL
-  AND countryname IN ('United States', 'United Kingdom', 'Germany', 'France', 'Japan', 'Canada')
-ORDER BY year DESC, countryname
+  AND countryname IN ('United States', 'Germany', 'France', 'Japan')
+ORDER BY year, countryname
 ```
 
-<DataTable 
+<LineChart
   data={fiscal_balance}
-  rows=80
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=expenditure_pct_gdp title="Expenditure (% GDP)"/>
-  <Column id=revenue_pct_gdp title="Revenue (% GDP)"/>
-  <Column id=deficit_pct_gdp title="Deficit (% GDP)" contentType=delta fmt="+#,##0.0;-#,##0.0"/>
-</DataTable>
+  x=year
+  y=deficit_pct_gdp
+  series=countryname
+  title="Fiscal Deficits: Revenue vs Spending (2000-2023)"
+  yAxisTitle="Deficit (% GDP)"
+  xAxisTitle="Year"
+/>
 
-## Interest Rates and Debt Sustainability
+**The Problem**: Deficits remain stubbornly high even during economic expansions. Pre-2008, the US ran 2-3% deficits. Now it's 5-6% even with low unemployment. This structural deficit means debt will keep growing regardless of economic conditions.
 
-```sql interest_rates
-SELECT 
-  year,
-  countryname,
-  ROUND(ltrate, 2) as long_term_rate,
-  ROUND(cbrate, 2) as central_bank_rate
-FROM gmd
-WHERE year >= 2000 
-  AND year <= 2023
-  AND (ltrate IS NOT NULL OR cbrate IS NOT NULL)
-  AND countryname IN ('United States', 'United Kingdom', 'Germany', 'Japan', 'Euro Area')
-ORDER BY year DESC, countryname
-LIMIT 80
-```
+## The Sustainability Question
 
-<DataTable 
-  data={interest_rates}
-  rows=80
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=long_term_rate title="Long-Term Rate (%)"/>
-  <Column id=central_bank_rate title="Central Bank Rate (%)"/>
-</DataTable>
+**Why Debt Matters**:
+1. Rising interest rates increase debt servicing costs exponentially
+2. Aging populations demand more healthcare/pensions while tax base shrinks
+3. Climate change requires massive infrastructure investment
+4. Competitive pressures with China demand defense spending
 
-## The Debt Sustainability Question
+**The Three Escape Routes**:
+1. **Fiscal Austerity** → Cut spending/raise taxes (politically unpopular, economically painful)
+2. **Economic Growth** → Grow GDP faster than debt (requires productivity acceleration)
+3. **Inflation** → Inflate away the debt burden (but erodes savings, causes instability)
 
-```sql debt_sustainability
-WITH debt_metrics AS (
-  SELECT 
-    year,
-    countryname,
-    govdebt_GDP as debt_ratio,
-    govdef_GDP as deficit_ratio,
-    LAG(govdebt_GDP) OVER (PARTITION BY countryname ORDER BY year) as prev_debt_ratio
-  FROM gmd
-  WHERE year >= 2010 AND year <= 2023
-    AND govdebt_GDP IS NOT NULL
-    AND govdef_GDP IS NOT NULL
-)
-SELECT 
-  year,
-  countryname,
-  ROUND(debt_ratio, 1) as debt_pct_gdp,
-  ROUND(deficit_ratio, 1) as deficit_pct_gdp,
-  CASE 
-    WHEN debt_ratio > 90 THEN 'High Risk'
-    WHEN debt_ratio > 60 THEN 'Elevated Risk'
-    WHEN debt_ratio > 40 THEN 'Moderate Risk'
-    ELSE 'Low Risk'
-  END as risk_category
-FROM debt_metrics
-WHERE countryname IN ('United States', 'Japan', 'Italy', 'Spain', 'Germany', 'France')
-ORDER BY year DESC, debt_ratio DESC
-```
+**Most Likely Outcome**: A combination of slow growth, modest inflation, and painful budget cuts—a "muddle through" scenario that doesn't solve the problem but delays crisis.
 
-<DataTable 
-  data={debt_sustainability}
-  rows=100
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=debt_pct_gdp title="Debt (% GDP)"/>
-  <Column id=deficit_pct_gdp title="Deficit (% GDP)"/>
-  <Column id=risk_category title="Risk Level"/>
-</DataTable>
+---
 
-## Key Insights
-
-- **Historic Debt Levels**: Government debt in advanced economies has reached levels not seen since World War II
-  - Japan leads at ~250% of GDP
-  - US at ~120% of GDP
-  - Italy and Spain at ~140% and ~110% respectively
-
-- **The Deficit Problem**: Persistent budget deficits mean debt continues to grow even during economic expansions
-
-- **Interest Rate Sensitivity**: Rising interest rates increase debt servicing costs, creating a vicious cycle
-
-- **Political Constraints**: Addressing debt requires either raising taxes, cutting spending, or achieving faster growth—all politically difficult
-
-- **Emerging Question**: Can advanced economies sustain current debt levels? This is the defining economic policy question of the 2020s
-
-- **Divergent Paths**: Some countries (Germany, Australia) maintained lower debt, while others had to issue massive amounts (US, Japan, UK)
+**Data Source**: Global Macro Database (1960-2023) | **Last Updated**: <LastRefreshed/>

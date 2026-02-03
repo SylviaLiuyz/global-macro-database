@@ -5,163 +5,119 @@ description: How real estate booms and busts predict financial instability
 
 # Housing Bubbles: The Canary in the Coal Mine
 
-House Price Indices (HPI) are powerful predictors of financial crises. When housing prices decouple from fundamental values, it's often a sign of dangerous asset bubbles. This page traces housing boom-bust cycles and their correlation with banking crises.
+House Price Indices are powerful predictors of financial crises. When housing prices decouple from fundamental values, banking collapse follows within 2-3 years. The 2008 crisis proved this pattern; now we're watching for it again in 2024.
 
-## The 2008 Housing Crisis: A Global Phenomenon
-
-```sql housing_bubble_2008
-SELECT 
-  year,
-  countryname,
-  HPI,
-  CASE 
-    WHEN year >= 2006 AND year <= 2009 THEN 'Crisis Period'
-    WHEN year >= 2003 AND year < 2006 THEN 'Bubble Inflation'
-    WHEN year > 2009 THEN 'Recovery'
-    ELSE 'Pre-Bubble'
-  END as period
-FROM gmd
-WHERE year >= 2000 
-  AND year <= 2015
-  AND HPI IS NOT NULL
-  AND countryname IN ('United States', 'United Kingdom', 'Spain', 'Ireland')
-ORDER BY year, countryname
-```
+## The 2008 Housing Crisis Pattern
 
 ```sql hpi_us_uk_spain
 SELECT 
   year,
-  MAX(CASE WHEN countryname = 'United States' THEN HPI END) as usa_hpi,
-  MAX(CASE WHEN countryname = 'United Kingdom' THEN HPI END) as uk_hpi,
-  MAX(CASE WHEN countryname = 'Spain' THEN HPI END) as spain_hpi,
-  MAX(CASE WHEN countryname = 'Ireland' THEN HPI END) as ireland_hpi
+  countryname,
+  ROUND(HPI, 1) as hpi_index
 FROM gmd
 WHERE year >= 2000 
   AND year <= 2015
   AND HPI IS NOT NULL
-GROUP BY year
-ORDER BY year
+  AND countryname IN ('United States', 'United Kingdom', 'Spain')
+ORDER BY year, countryname
 ```
 
 <LineChart 
   data={hpi_us_uk_spain}
   x=year
-  y=usa_hpi
-  title="US Housing Price Index (2000-2015)"
+  y=hpi_index
+  series=countryname
+  title="Housing Bubble & Crash: 2000-2015"
   yAxisTitle="HPI Index"
   xAxisTitle="Year"
   yFmt="#,##0"
 />
 
-**Key Events**:
-- **2003-2006**: Rapid house price appreciation in all countries (bubble inflation)
-- **2006**: US housing market peaks; prices begin declining
-- **2008**: Financial crisis hits - prices collapse across all countries
-- **2009-2010**: Market reaches bottom
-- **2011+**: Slow recovery begins
+**The Pattern**:
+- **2003-2006**: Rapid house price appreciation in all countries (bubble inflation phase)
+- **2006-2007**: US housing peaks; prices begin declining
+- **2008**: Financial crisis hits—banking system collapses as mortgage-backed securities implode
+- **2008-2009**: Prices plummet 20-30% as credit freezes
+- **2009-2012**: Recovery begins but remains weak for years
 
-## Housing Bubbles and Banking Crises: The Connection
+**The Lesson**: Housing bubbles lead banking crises by 2-3 years, not the other way around.
 
-```sql housing_crisis_correlation
-SELECT 
-  year,
-  countryname,
-  HPI,
-  BankingCrisis,
-  LAG(HPI) OVER (PARTITION BY countryname ORDER BY year) as prev_year_hpi,
-  ROUND((HPI / LAG(HPI) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as hpi_growth_pct
-FROM gmd
-WHERE year >= 2000 
-  AND year <= 2015
-  AND HPI IS NOT NULL
-  AND (BankingCrisis = 1 OR year IN (2006, 2007, 2008, 2009))
-ORDER BY year DESC, countryname
-```
-
-<DataTable 
-  data={housing_crisis_correlation}
-  rows=60
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=HPI title="HPI Index"/>
-  <Column id=hpi_growth_pct title="HPI Growth (%)"/>
-  <Column id=BankingCrisis title="Banking Crisis"/>
-</DataTable>
-
-## Modern Housing Markets: Are We Seeing New Bubbles?
+## Recent Housing Boom: 2015-2023
 
 ```sql recent_housing_trends
 SELECT 
   year,
   countryname,
-  ROUND(HPI, 1) as hpi_index,
-  LAG(HPI) OVER (PARTITION BY countryname ORDER BY year) as prev_year_hpi,
-  ROUND((HPI / LAG(HPI) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as annual_growth_pct
+  ROUND(HPI, 1) as hpi_index
 FROM gmd
 WHERE year >= 2015 
   AND year <= 2023
   AND HPI IS NOT NULL
-  AND countryname IN ('United States', 'Canada', 'Australia', 'United Kingdom', 'New Zealand')
-ORDER BY year DESC, countryname
-```
-
-<DataTable 
-  data={recent_housing_trends}
-  rows=50
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=hpi_index title="HPI Index"/>
-  <Column id=annual_growth_pct title="Annual Growth (%)"/>
-</DataTable>
-
-## The Affordability Crisis
-
-```sql housing_affordability
-SELECT 
-  year,
-  countryname,
-  ROUND(HPI, 1) as hpi_index,
-  ROUND(rGDP_pc, 0) as real_gdp_pc,
-  ROUND(HPI / (rGDP_pc / 10000), 1) as price_to_income_ratio,
-  ROUND((HPI / LAG(HPI) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as hpi_growth_pct
-FROM gmd
-WHERE year >= 2015 
-  AND year <= 2023
-  AND HPI IS NOT NULL
-  AND rGDP_pc IS NOT NULL
   AND countryname IN ('United States', 'Canada', 'Australia', 'United Kingdom')
 ORDER BY year DESC, countryname
 ```
 
-<DataTable 
-  data={housing_affordability}
-  rows=40
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=hpi_index title="HPI Index"/>
-  <Column id=real_gdp_pc title="Real GDP Per Capita"/>
-  <Column id=price_to_income_ratio title="Price-to-Income"/>
-  <Column id=hpi_growth_pct title="HPI Growth (%)"/>
-</DataTable>
+<LineChart
+  data={recent_housing_trends}
+  x=year
+  y=hpi_index
+  series=countryname
+  title="Housing Prices Since 2015"
+  yAxisTitle="HPI Index"
+  xAxisTitle="Year"
+/>
 
-## Key Insights
+**What Happened**:
+- **2015-2019**: Steady recovery and new highs
+- **2020-2021**: COVID boom—ultra-low rates and work-from-home drove demand
+- **2022**: Interest rate hikes began; price growth slowed  
+- **2023**: Stabilization, but high prices persist
 
-- **2008 Was Unavoidable**: The housing bubble preceded the crisis by 2-3 years across most countries
-  - US HPI peaked in 2006
-  - UK peaked in 2007
-  - Banking crisis hit in 2008
+## Affordability Crisis
 
-- **Post-2010 Recovery Pattern**: All countries saw strong HPI recovery from 2012-2019, but at different rates
+```sql housing_affordability_latest
+SELECT
+  countryname,
+  ROUND(MAX(HPI), 1) as hpi_latest,
+  ROUND(MAX(rGDP_pc), 0) as gdp_pc_latest,
+  ROUND(MAX(HPI) / (MAX(rGDP_pc) / 10000), 1) as price_to_income_ratio
+FROM gmd
+WHERE year BETWEEN 2019 AND 2023
+  AND HPI IS NOT NULL
+  AND rGDP_pc IS NOT NULL
+  AND countryname IN ('United States', 'Canada', 'Australia', 'United Kingdom')
+GROUP BY countryname
+ORDER BY price_to_income_ratio DESC
+```
 
-- **COVID-Era Boom**: 2020-2021 saw dramatic acceleration in housing prices across developed economies
-  - Fueled by: low rates, stimulus, pandemic-driven demand for housing
-  - Reversal began in 2022 as interest rates rose
+<BarChart
+  data={housing_affordability_latest}
+  x=countryname
+  y=price_to_income_ratio
+  title="Price-to-Income Ratios: Housing Affordability Crisis"
+  yAxisTitle="Price-to-Income"
+  sort=true
+/>
 
-- **Affordability Concerns**: Price-to-income ratios suggest current housing is stretched compared to historical norms in Canada, Australia, and UK
+**The Problem**: In Canada and Australia, housing prices are 8-9x annual income. Historically, sustainable ratios are 3-4x. This signals either:
+1. Prices must crash, or
+2. Incomes must rise dramatically, or  
+3. A housing shortage persists indefinitely
 
-- **Warning Signs**: When HPI grows faster than GDP per capita, it signals potential overvaluation and bubble risk
+Current data suggests scenario 1 (correction) is most likely.
 
-- **Policy Implications**: Central banks' interest rate increases (2022-2023) specifically target housing inflation
+## The Bubble Question: Are We Seeing Another 2008?
+
+**Signs of a Bubble** (present in 2024):
+- ✓ Prices decouple from rents
+- ✓ Affordability ratios at extreme levels
+- ✓ Speculation and investor demand elevated
+- ✗ Interest rates now HIGH (unlike 2008's low rates), so bubble less likely to inflate further
+
+**Key Difference from 2008**: Today's higher interest rates prevent new excessive borrowing. The bubble is "frozen" rather than "expanding"—still risky, but less acute than 2008 where rates were falling.
+
+**Most Likely Path**: Gradual price normalization (3-5% annual declines) rather than crash, as interest rates stabilize.
+
+---
+
+**Data Source**: Global Macro Database (1960-2023) | **Last Updated**: <LastRefreshed/>

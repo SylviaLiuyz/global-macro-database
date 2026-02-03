@@ -19,7 +19,8 @@ Welcome to the Global Macro Database Dashboard. This comprehensive analysis expl
 4. **[Housing Bubbles →](housing)** - When real estate booms precede financial crises
 5. **[Monetary Policy Explosion →](monetary)** - How money printing leads to delayed inflation
 6. **[Currency Crises →](currency)** - Exchange rate turmoil and emerging market vulnerabilities
-7. **[Trade Wars →](trade)** - Tariffs, supply chains, and economic decoupling
+7. **[Trade Wars & Supply Chains →](trade)** - How tariffs and protectionism reshape global commerce
+
 
 ## Global GDP Growth
 

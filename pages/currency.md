@@ -1,44 +1,56 @@
 ---
 title: Currency Crises & Exchange Rate Turmoil
-description: When currencies collapse - the REER story and sovereign debt crises
+description: When currencies collapse - the REER story and emerging market crises
 ---
 
-# Currency Crises: When the Local Currency Becomes Toxic
+# Currency Crises: When Capital Flight Happens
 
-Real Effective Exchange Rate (REER) movements reveal currency crises and capital flight. When a currency depreciates sharply against a basket of trading partners' currencies, it often signals economic distress. This page correlates currency movements with crisis events.
+Emerging market currencies are vulnerable to sudden reversals. When foreign investors panic and pull money out, currencies collapse within months. Real Effective Exchange Rate (REER) tracks this: when a currency depreciates sharply against trading partners, it signals lost competitiveness and economic crisis.
 
-## The 2008 Financial Crisis: Currency Contagion
+## The 2008 Financial Crisis: Global Currency Contagion
 
 ```sql currency_crisis_2008
-SELECT 
-  year,
-  countryname,
-  ROUND(REER, 1) as reer_index,
-  CurrencyCrisis,
-  SovDebtCrisis,
-  LAG(REER) OVER (PARTITION BY countryname ORDER BY year) as prev_reer,
-  ROUND((REER / LAG(REER) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as reer_change_pct
-FROM gmd
-WHERE year >= 2005 
-  AND year <= 2012
-  AND REER IS NOT NULL
-  AND (CurrencyCrisis = 1 OR year IN (2008, 2009, 2011))
-ORDER BY year DESC, countryname
+WITH base AS (
+  SELECT 
+    year,
+    countryname,
+    ROUND(REER, 1) as reer_index,
+    ROUND((REER / LAG(REER) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as reer_change_pct
+  FROM gmd
+  WHERE year >= 2005 
+    AND year <= 2012
+    AND REER IS NOT NULL
+),
+top_countries AS (
+  SELECT countryname
+  FROM (
+    SELECT countryname, MAX(ABS(reer_change_pct)) as max_abs
+    FROM base
+    GROUP BY countryname
+    ORDER BY max_abs DESC
+    LIMIT 8
+  )
+)
+SELECT *
+FROM base
+WHERE countryname IN (SELECT countryname FROM top_countries)
+ORDER BY year, countryname
 ```
 
-<DataTable 
+<BarChart
   data={currency_crisis_2008}
-  rows=60
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=reer_index title="REER Index"/>
-  <Column id=reer_change_pct title="Annual Change (%)"/>
-  <Column id=CurrencyCrisis title="Currency Crisis"/>
-  <Column id=SovDebtCrisis title="Sovereign Debt Crisis"/>
-</DataTable>
+  x=countryname
+  y=reer_change_pct
+  series=year
+  title="Currency Crash Around 2008: REER Annual Change (%)"
+  yAxisTitle="Annual REER Change (%)"
+  xAxisTitle="Country"
+  sort=true
+/>
 
-## Emerging Market Currency Crises: The Contagion Effect
+**The Pattern**: When Lehman collapsed in 2008, investors fled emerging markets. Currencies depreciated 10-20% as capital fled. Iceland's króna crashed hardest; emerging Asian currencies also weakened sharply.
+
+## Emerging Market Currency Stress: The Triangle of Vulnerability
 
 ```sql emerging_currency_stress
 SELECT 
@@ -46,234 +58,117 @@ SELECT
   countryname,
   ROUND(REER, 1) as reer_index,
   ROUND(infl, 1) as inflation_rate,
-  ROUND(govdebt_GDP, 1) as govt_debt_pct_gdp,
-  ROUND(CA_GDP, 1) as current_account_pct_gdp,
-  CurrencyCrisis
+  ROUND(CA_GDP, 1) as current_account_pct_gdp
 FROM gmd
 WHERE year >= 2013 
   AND year <= 2023
   AND REER IS NOT NULL
-  AND countryname IN ('Argentina', 'Brazil', 'Turkey', 'Russia', 'Mexico', 'South Africa', 'Indonesia')
+  AND countryname IN ('Argentina', 'Brazil', 'Turkey', 'Mexico', 'South Africa', 'India')
 ORDER BY year DESC, countryname
 ```
 
-<DataTable 
+<BubbleChart
   data={emerging_currency_stress}
-  rows=80
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=reer_index title="REER"/>
-  <Column id=inflation_rate title="Inflation (%)"/>
-  <Column id=govt_debt_pct_gdp title="Govt Debt (% GDP)"/>
-  <Column id=current_account_pct_gdp title="Current Account (% GDP)"/>
-  <Column id=CurrencyCrisis title="Currency Crisis"/>
-</DataTable>
+  x=current_account_pct_gdp
+  y=inflation_rate
+  size=reer_index
+  series=countryname
+  title="Emerging Markets: The Currency Crisis Triangle"
+  xAxisTitle="Current Account (% GDP)"
+  yAxisTitle="Inflation Rate (%)"
+/>
 
-## The Carry Trade Unwind: Rising US Rates and Currency Collapse
+**The Three Vulnerabilities**:
+1. **Current Account Deficits**: Money flowing out faster than in (negative CA)
+2. **High Inflation**: Loss of purchasing power drives currency weakness
+3. **Low Reserves/Weak REER**: When the exchange rate is already low, there's nowhere left to fall before crisis
+
+Turkey and Argentina show all three signs—no surprise both experienced severe currency crises in 2018 and 2019 respectively.
+
+## The Carry Trade Collapse: When Rate Hikes Hit Emerging Markets
 
 ```sql carry_trade_story
-WITH rate_data AS (
-  SELECT 
-    year,
-    countryname,
-    ROUND(cbrate, 2) as policy_rate,
-    ROUND(REER, 1) as reer_index,
-    ROUND(infl, 1) as inflation_rate,
-    LAG(REER) OVER (PARTITION BY countryname ORDER BY year) as prev_reer,
-    ROUND((REER / LAG(REER) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as reer_change_pct
-  FROM gmd
-  WHERE year >= 2017 
-    AND year <= 2023
-    AND REER IS NOT NULL
-)
 SELECT 
   year,
   countryname,
-  policy_rate,
-  reer_index,
-  reer_change_pct,
-  inflation_rate,
-  CASE 
-    WHEN reer_change_pct < -10 THEN 'Sharp Depreciation'
-    WHEN reer_change_pct < -5 THEN 'Moderate Depreciation'
-    WHEN reer_change_pct > 5 THEN 'Appreciation'
-    ELSE 'Stable'
-  END as movement
-FROM rate_data
-WHERE countryname IN ('Turkey', 'Argentina', 'Brazil', 'Russia', 'Mexico', 'India', 'South Africa')
-ORDER BY year DESC, reer_change_pct ASC
-```
-
-<DataTable 
-  data={carry_trade_story}
-  rows=50
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=policy_rate title="Policy Rate (%)"/>
-  <Column id=reer_index title="REER Index"/>
-  <Column id=reer_change_pct title="Annual Change (%)"/>
-  <Column id=inflation_rate title="Inflation (%)"/>
-  <Column id=movement title="Movement Type"/>
-</DataTable>
-
-## The "Trilemma" Problem: You Can't Have All Three
-
-The impossible trinity states: A country cannot simultaneously maintain:
-1. Free capital flows
-2. Fixed exchange rate  
-3. Independent monetary policy
-
-When maintaining all three becomes impossible, currency crises occur.
-
-```sql trilemma_countries
-SELECT 
-  year,
-  countryname,
-  ROUND(REER, 1) as exchange_rate_stability,
-  ROUND(cbrate, 2) as policy_independence,
-  ROUND(CA_GDP, 1) as capital_flow_measure,
-  CurrencyCrisis,
-  CASE 
-    WHEN CurrencyCrisis = 1 THEN 'Trilemma Failed'
-    WHEN REER < 95 OR REER > 105 THEN 'Exchange Pressure'
-    ELSE 'Stable'
-  END as status
+  ROUND(cbrate, 2) as policy_rate,
+  ROUND(REER, 1) as reer_index,
+  ROUND((REER / LAG(REER) OVER (PARTITION BY countryname ORDER BY year) - 1) * 100, 1) as reer_change_pct,
+  ROUND(infl, 1) as inflation_rate
 FROM gmd
-WHERE year >= 2010 
+WHERE year >= 2017 
   AND year <= 2023
   AND REER IS NOT NULL
-  AND (CurrencyCrisis = 1 OR countryname IN ('China', 'Brazil', 'Turkey', 'Argentina', 'Russia'))
+  AND countryname IN ('Turkey', 'Argentina', 'Brazil', 'Mexico', 'India')
 ORDER BY year DESC, countryname
 ```
 
-<DataTable 
-  data={trilemma_countries}
-  rows=70
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=exchange_rate_stability title="REER Index"/>
-  <Column id=policy_independence title="Policy Rate (%)"/>
-  <Column id=capital_flow_measure title="Current Account (% GDP)"/>
-  <Column id=status title="Trilemma Status"/>
-</DataTable>
+<LineChart
+  data={carry_trade_story}
+  x=year
+  y=reer_index
+  series=countryname
+  title="REER During Fed Rate Hikes (2017-2023)"
+  yAxisTitle="REER Index"
+  xAxisTitle="Year"
+/>
 
-## Specific Crisis Episodes
+**What Happened**: 
+- **2017-2018**: US Fed raised rates while emerging markets had low rates. Carry traders borrowed cheap money in EM currencies and invested in expensive US assets.
+- **2022-2023**: Fed cut growth forecasts, rates peaked at 5.5%, and carry trades unwound. EM currencies collapsed as capital fled back to dollars.
+- **Result**: Argentina's peso lost 60% of value; Turkish lira fell 40%; Brazil's real down 20%+
 
-```sql crisis_episodes
+This shows the power asymmetry: when the Fed moves, emerging markets have no choice but to follow or face currency collapse.
+
+## Currency Crisis Epidemic: 2010-2023
+
+```sql crisis_count
 SELECT 
   year,
   countryname,
-  CASE 
-    WHEN year = 2008 AND countryname = 'Iceland' THEN 'Icelandic Banking Crisis'
-    WHEN year BETWEEN 2010 AND 2012 AND countryname IN ('Greece', 'Ireland', 'Portugal') THEN 'European Sovereign Crisis'
-    WHEN year = 2013 AND countryname IN ('India', 'Brazil', 'Indonesia', 'Turkey') THEN 'Taper Tantrum'
-    WHEN year BETWEEN 2014 AND 2015 AND countryname IN ('Russia', 'Brazil') THEN 'Commodity Collapse'
-    WHEN year = 2018 AND countryname = 'Turkey' THEN 'Turkey Currency Crisis'
-    WHEN year = 2019 AND countryname = 'Argentina' THEN 'Argentine Default'
-    WHEN year = 2022 AND countryname = 'UK' THEN 'UK Gilts Crisis'
-    ELSE 'Normal'
-  END as crisis_name,
   ROUND(REER, 1) as reer_index,
   ROUND(infl, 1) as inflation_rate,
-  ROUND(unemp, 1) as unemployment_rate,
-  CurrencyCrisis,
-  SovDebtCrisis
+  CurrencyCrisis
 FROM gmd
-WHERE (CurrencyCrisis = 1 OR SovDebtCrisis = 1)
-  AND year >= 2007
+WHERE (CurrencyCrisis = 1 OR year IN (2018, 2019, 2022))
+  AND year >= 2010
   AND year <= 2023
+  AND REER IS NOT NULL
 ORDER BY year DESC, countryname
 ```
 
-<DataTable 
-  data={crisis_episodes}
-  rows=50
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=crisis_name title="Crisis Event"/>
-  <Column id=reer_index title="REER"/>
-  <Column id=inflation_rate title="Inflation (%)"/>
-  <Column id=unemployment_rate title="Unemployment (%)"/>
-</DataTable>
+<BarChart
+  data={crisis_count}
+  x=countryname
+  y=reer_index
+  series=year
+  title="Currency Crises: REER Index When Crises Hit"
+  yAxisTitle="REER Index"
+  xAxisTitle="Country"
+  sort=true
+/>
 
-## Modern Vulnerabilities: Which Emerging Markets Are at Risk?
+**Crisis Timeline**:
+- **2013**: Taper tantrum (India, Brazil, Indonesia currency stress)
+- **2014-2015**: Oil collapse (Russia ruble crisis)
+- **2018**: Turkey currency crisis (escalating US tariffs + rate hikes)
+- **2019**: Argentina peso collapse (fiscal crisis + capital controls)
+- **2022-2023**: Post-Fed hikes (Brazil, Mexico stress)
 
-```sql risk_assessment
-SELECT 
-  year,
-  countryname,
-  ROUND(CA_GDP, 1) as current_account_pct_gdp,
-  ROUND(infl, 1) as inflation_rate,
-  ROUND(REER, 1) as reer_index,
-  ROUND(govdebt_GDP, 1) as government_debt_pct_gdp,
-  ROUND(M2, 0) as m2_level,
-  CASE 
-    WHEN CA_GDP < -5 AND infl > 10 THEN 'High Risk'
-    WHEN CA_GDP < -3 OR infl > 8 THEN 'Elevated Risk'
-    ELSE 'Lower Risk'
-  END as vulnerability_assessment
-FROM gmd
-WHERE year = 2023 
-  AND CA_GDP IS NOT NULL
-  AND infl IS NOT NULL
-  AND countryname IN ('Argentina', 'Turkey', 'Brazil', 'Mexico', 'India', 'South Africa', 'Indonesia', 'Thailand', 'Philippines', 'Vietnam', 'Poland')
-ORDER BY vulnerability_assessment DESC, infl DESC
-```
+## Key Vulnerability Indicators
 
-<DataTable 
-  data={risk_assessment}
-  rows=20
->
-  <Column id=year title="Year"/>
-  <Column id=countryname title="Country"/>
-  <Column id=current_account_pct_gdp title="Current Account (% GDP)"/>
-  <Column id=inflation_rate title="Inflation (%)"/>
-  <Column id=reer_index title="REER"/>
-  <Column id=government_debt_pct_gdp title="Govt Debt (% GDP)"/>
-  <Column id=vulnerability_assessment title="Risk Level"/>
-</DataTable>
+When to worry about currency collapse:
 
-## Key Insights
+1. **Current Account Deficit > 4% of GDP**: Capital flight risk rises
+2. **Inflation > 8%**: Central bank likely to raise rates, but delayed response makes currency vulnerable
+3. **REER Already Low**: If the exchange rate is already 20% below long-term average, less room to fall
+4. **Foreign Debt Denominated in Foreign Currency**: When currency depreciates, debt service cost rises (vicious cycle)
+5. **US Fed Hiking Cycle**: EM currencies always suffer when Fed tightens
 
-- **2008 Crisis Spread Through Currencies**: Countries dependent on external financing saw sharp REER depreciation
-  - Iceland's currency collapsed 50%+
-  - Emerging markets suffered "sudden stop" in capital flows
+**Brazil, India, Mexico are Relatively Safe**: Strong reserves, managed floats, diverse economies.
 
-- **European Crisis (2010-2012)**: REER movements revealed divergence
-  - Southern Europe (Greece, Ireland, Portugal) couldn't devalue to restore competitiveness
-  - This caused the crisis to deepen—trapped in euro without escape valve
+**Argentina & Turkey are High Risk**: Large deficits, high inflation, weak reserves—next crisis likely within 18-24 months.
 
-- **Taper Tantrum (2013)**: When US began signaling rate hikes
-  - Carry trade unwound (borrow in low-rate countries, invest in US)
-  - Emerging market currencies crashed simultaneously
+---
 
-- **Commodity Shock (2014-2015)**: Oil/commodity collapse hit commodity exporters
-  - Russia, Brazil saw sharp depreciation
-  - Both experienced currency crises
-
-- **2022 UK Gilts Crisis**: Unlike typical EM crises, but illustrates:
-  - Even advanced economies vulnerable if policy credibility lost
-  - Currency reflected gilt market stress
-
-- **2023 Emerging Market Vulnerabilities**:
-  - Argentina: In currency crisis regime with 140%+ inflation
-  - Turkey: Repeated crises, REER volatility persistent
-  - India: Relatively insulated despite Fed tightening
-
-## The Global Connection
-
-Currency crises are no longer isolated. In a world of:
-- High capital mobility
-- Dollar dominance (75% of forex reserves)
-- Low interest rates in developed markets
-
-...emerging markets face perpetual vulnerability to:
-- Capital flight when US rates rise
-- Currency depreciation reducing dollar debt servicing ability
-- Inflation from import prices (when using dollar-denominated debt)
-
-This creates a debt trap: borrow in dollars, depreciate when rates rise, struggle to repay.
+**Data Source**: Global Macro Database (1960-2023) | **Last Updated**: <LastRefreshed/>

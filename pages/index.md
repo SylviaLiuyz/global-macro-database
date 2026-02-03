@@ -1,65 +1,71 @@
 ---
-title: Global Macro Database - GDP Analysis
-description: Analysis of global GDP trends from the Global Macro Database
+title: Global Macro Database Dashboard
+description: Interactive analysis of global macroeconomic trends and insights
 ---
 
-
-# Global GDP Trends Since 1900
+# Global Macroeconomic Dashboard
 <LastRefreshed prefix="Data last updated"/>
 
-This dashboard analyzes global GDP data from the Global Macro Database, showing aggregate GDP trends across all countries since 1900.
+Welcome to the Global Macro Database Dashboard. This comprehensive analysis explores fascinating patterns in global economics over the past century, from economic convergence between nations to inflation dynamics and government debt trends.
+
+## Dashboard Overview
+
+This dashboard presents three key insights:
+
+1. **[Economic Convergence →](convergence)** - How emerging markets are catching up to developed economies
+2. **[Inflation & Employment →](inflation)** - Modern macroeconomic challenges in the 21st century  
+3. **[Government Debt →](debt)** - The rising debt burden in advanced economies
+
+## Global GDP Growth
 
 ```sql global_gdp_by_year
 SELECT 
     year,
     SUM(nGDP_USD) as total_gdp_usd_billions,
-    COUNT(DISTINCT countryname) as countries_with_data
+    COUNT(DISTINCT countryname) as countries_with_data,
+    ROUND(SUM(nGDP_USD) / 1000, 2) as total_gdp_trillions
 FROM gmd 
-WHERE year >= 1900 
+WHERE year >= 1970 
     AND nGDP_USD IS NOT NULL 
     AND nGDP_USD > 0
 GROUP BY year 
 ORDER BY year
 ```
 
-## Total Global GDP in USD (Billions) Since 1900
-
 <LineChart 
     data={global_gdp_by_year}
     x=year
-    y=total_gdp_usd_billions
-    title="Global GDP in USD (Billions)"
-    yAxisTitle="GDP (Billions USD)"
+    y=total_gdp_trillions
+    title="Global GDP Growth Since 1970"
+    yAxisTitle="GDP (Trillions USD)"
     xAxisTitle="Year"
-    yFmt="#,##0,,"
+    yFmt="#,##0.0"
 />
 
-### Key Statistics
+## Top 10 Economies Today
 
-- **Countries in Dataset**: <Value data={global_gdp_by_year} column=countries_with_data agg=max/> countries have GDP data
-- **Latest Year GDP**: $<Value data={global_gdp_by_year} column=total_gdp_usd_billions agg=max fmt="#,##0,,"/> trillion USD
-- **Data Coverage**: <Value data={global_gdp_by_year} column=year agg=min/> - <Value data={global_gdp_by_year} column=year agg=max/>
-
-```sql recent_growth
+```sql top_economies
 SELECT 
+    countryname,
     year,
-    total_gdp_usd_billions,
-    total_gdp_usd_billions - LAG(total_gdp_usd_billions, 1) OVER (ORDER BY year) as gdp_growth_billions,
-    ROUND(((total_gdp_usd_billions - LAG(total_gdp_usd_billions, 1) OVER (ORDER BY year)) / LAG(total_gdp_usd_billions, 1) OVER (ORDER BY year)) * 100, 2) as gdp_growth_pct
-FROM ${global_gdp_by_year}
-WHERE year >= 2000
-ORDER BY year DESC
+    ROUND(nGDP_USD / 1000, 2) as gdp_trillions,
+    ROW_NUMBER() OVER (ORDER BY nGDP_USD DESC) as rank
+FROM gmd
+WHERE year = (SELECT MAX(year) FROM gmd WHERE nGDP_USD IS NOT NULL)
+    AND nGDP_USD IS NOT NULL
+ORDER BY gdp_trillions DESC
 LIMIT 10
 ```
 
-## Recent GDP Growth (Last 10 Years)
+<BarChart 
+    data={top_economies}
+    x=countryname
+    y=gdp_trillions
+    title="Top 10 Economies by GDP"
+    yAxisTitle="GDP (Trillions USD)"
+    sort=true
+/>
 
-<DataTable 
-    data={recent_growth}
-    rows=10
->
-    <Column id=year title="Year"/>
-    <Column id=total_gdp_usd_billions title="GDP (Billions USD)" fmt="#,##0,,"/>
-    <Column id=gdp_growth_billions title="Growth (Billions USD)" fmt="+#,##0;-#,##0"/>
-    <Column id=gdp_growth_pct title="Growth %" fmt="+#,##0.0%;-#,##0.0%" contentType=delta/>
-</DataTable>
+---
+
+Explore the detailed analysis pages above to discover key insights about global economic trends.
